@@ -1,0 +1,10 @@
+# Virtual environment
+myenv/
+# Python cache files
+__pycache__/
+*.pyc
+
+# Django stuff Remove-Item -Recurse -Force .\apps\.git
+db.sqlite3
+*.log
+.env
