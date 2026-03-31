@@ -8,6 +8,3 @@ __pycache__/
 db.sqlite3
 *.log
 .env
-
-# Sensitive settings files - should never be committed
-backend_drf/settings.py

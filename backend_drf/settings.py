@@ -1,17 +1,5 @@
 """
 Django settings for backend_drf project.
-
-IMPORTANT: This is a TEMPLATE file showing the required settings structure.
-Do NOT commit the actual settings.py file to git.
-
-To use this project:
-1. Create a .env file in the project root with the following variables:
-   - SECRET_KEY=your-secret-key-here
-   - EMAIL_HOST_USER=your-email@gmail.com
-   - EMAIL_HOST_PASSWORD=your-app-password
-
-2. Never commit backend_drf/settings.py to version control.
-   It contains sensitive information like SECRET_KEY and email credentials.
 """
 
 import os
@@ -22,9 +10,8 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY: Load SECRET_KEY from environment variables
-# Generate a new one with: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+# SECRET_KEY = 'django-insecure-a34xnotn*q%7&zf9!byjsod3-pkwnu%vjvtb3^pb^fvj9)r=1k'
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
 DEBUG = True
 
@@ -81,7 +68,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend_drf.wsgi.application'
 
-# Database configuration
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -119,7 +105,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom user model — must be set before the first migration
 AUTH_USER_MODEL = 'users.CustomUser'
 
-# DRF (Django REST Framework) settings
+# DRF settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
@@ -129,27 +115,27 @@ REST_FRAMEWORK = {
     ],
 }
 
-# CORS (Cross-Origin Resource Sharing) configuration
-# Allow requests from your React dev server
+# CORS — allow requests from your React dev server
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 
-# Media files (user uploads like profile pictures)
+import os
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Email Configuration for Password Reset
-# Configure with Gmail or your email provider
+
+# Email Settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'your-email@gmail.com')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'your-app-password')
-DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_HOST_USER', 'your-email@gmail.com')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_HOST_USER')
+
 
 # Password reset token expiry (in hours)
 PASSWORD_RESET_TIMEOUT_HOURS = 24
