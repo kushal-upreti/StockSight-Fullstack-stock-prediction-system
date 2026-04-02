@@ -1,6 +1,8 @@
+# apps/users/serializers.py
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from .models import UserProfile
+
 User = get_user_model()
 
 
@@ -32,7 +34,6 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
 
-
 class UserProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     email = serializers.CharField(source='user.email', read_only=True)
@@ -42,3 +43,23 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = UserProfile
         fields = ['username', 'email', 'full_name', 'bio', 'profile_picture', 'phone_number', 'date_of_birth', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        if not User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("No account found with this email.")
+        return value
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    token = serializers.UUIDField()
+    new_password = serializers.CharField(write_only=True, min_length=6)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        if data['new_password'] != data['confirm_password']:
+            raise serializers.ValidationError("Passwords do not match.")
+        return data
