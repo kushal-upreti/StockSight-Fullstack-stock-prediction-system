@@ -2,11 +2,16 @@
 Django settings for backend_drf project.
 """
 
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-a34xnotn*q%7&zf9!byjsod3-pkwnu%vjvtb3^pb^fvj9)r=1k'
+# SECRET_KEY = 'django-insecure-a34xnotn*q%7&zf9!byjsod3-pkwnu%vjvtb3^pb^fvj9)r=1k'
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
 DEBUG = True
 
@@ -120,3 +125,17 @@ CORS_ALLOW_CREDENTIALS = True
 import os
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+
+# Email Settings
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_HOST_USER')
+
+
+# Password reset token expiry (in hours)
+PASSWORD_RESET_TIMEOUT_HOURS = 24
