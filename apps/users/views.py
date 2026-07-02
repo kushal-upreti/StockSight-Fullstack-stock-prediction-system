@@ -15,6 +15,7 @@ from .serializers import (
     RegisterSerializer, 
     LoginSerializer, 
     UserProfileSerializer,
+    ProfilePictureSerializer,
     ForgotPasswordSerializer,
     ResetPasswordSerializer, 
 )
@@ -70,16 +71,46 @@ class UserProfileView(APIView):
 
     def get(self, request):
         profile, created = UserProfile.objects.get_or_create(user=request.user)
-        serializer = UserProfileSerializer(profile)
+        serializer = UserProfileSerializer(profile, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request):
         profile, created = UserProfile.objects.get_or_create(user=request.user)
-        serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+        serializer = UserProfileSerializer(profile, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ProfilePictureUploadView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+
+    def put(self, request):
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        serializer = ProfilePictureSerializer(profile, data=request.data, context={'request': request})
+        if serializer.is_valid():
+            old_picture = profile.profile_picture
+            serializer.save()
+
+            if old_picture and old_picture.name != profile.profile_picture.name:
+                old_picture.delete(save=False)
+
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request):
+        return self.put(request)
+
+    def delete(self, request):
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        if profile.profile_picture:
+            profile.profile_picture.delete(save=False)
+            profile.profile_picture = None
+            profile.save(update_fields=['profile_picture', 'updated_at'])
+
+        serializer = ProfilePictureSerializer(profile, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     
 # Password Reset Functionality
