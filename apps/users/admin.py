@@ -5,10 +5,11 @@ from .models import CustomUser, UserProfile
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
-    list_display = ['username', 'email', 'full_name', 'is_staff', 'is_active', 'date_joined']
+    list_display = ['username', 'email', 'full_name', 'subscription_status', 'subscription_plan', 'is_staff', 'is_active', 'date_joined']
     fieldsets = (
         (None, {'fields': ('username', 'email', 'password')}),
         ('Personal Info', {'fields': ('full_name',)}),
+        ('Subscription', {'fields': ('subscription_status', 'subscription_plan')}),
         ('Permissions', {'fields': ('is_staff', 'is_active', 'is_superuser', 'groups', 'user_permissions')}),
     )
     add_fieldsets = (
