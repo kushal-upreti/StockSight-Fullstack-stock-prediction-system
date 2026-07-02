@@ -94,7 +94,7 @@ class StockPredictionAPIView(APIView):
         
         return Response({
             "errors": serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+        }, status=status.HTTP_400_BAD_REQUEST) 
 # <-----------------------------------------------------------------------------------------------------> 
         # # N-days prediction code
         #     # past_100_days_stock_data = df[['Close']].tail(100)

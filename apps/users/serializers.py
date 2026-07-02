@@ -57,7 +57,7 @@ class ResetPasswordSerializer(serializers.Serializer):
     token = serializers.UUIDField()
     new_password = serializers.CharField(write_only=True, min_length=6)
     confirm_password = serializers.CharField(write_only=True)
-    
+
     def validate(self, data):
         if data['new_password'] != data['confirm_password']:
             raise serializers.ValidationError("Passwords do not match.")
