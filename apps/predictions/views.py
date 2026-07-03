@@ -1,157 +1,136 @@
-import requests
-from django.shortcuts import render
+import joblib
+import numpy as np
+import pandas as pd
+import yfinance as yf
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
+
 from .serializers import StockPredictionSerializer
-from datetime import datetime
-import yfinance as yf
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_squared_error, r2_score
 from .stock_models.ml_models import get_model
 
+ARTIFACT_DIR = "apps/predictions/stock_models"
+
 model = get_model()
-# Create your views here.
+
+# Load everything the training script saved, instead of hardcoding values
+# here — this way the view always matches whatever was actually trained,
+# even if HORIZON/FEATURE_COLS change again later.
+scaler = joblib.load(f"{ARTIFACT_DIR}/scaler.pkl")
+TICKER_TO_ID = joblib.load(f"{ARTIFACT_DIR}/ticker_to_id.pkl")
+FEATURE_COLS = joblib.load(f"{ARTIFACT_DIR}/feature_cols.pkl")
+CONFIG = joblib.load(f"{ARTIFACT_DIR}/config.pkl")
+
+SEQ_LEN = CONFIG["seq_len"]
+HORIZON = CONFIG["horizon"]
+
+
+def build_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Recompute the same features the model was trained on."""
+    df = df.copy()
+    c = df["Close"].squeeze()
+    df["ret"] = c.pct_change()
+    df = df.dropna()
+    return df
+
 
 class StockPredictionAPIView(APIView):
+    """
+    Predicts whether a ticker's price will be UP or DOWN `HORIZON` trading
+    days from now, using the last `SEQ_LEN` days of daily returns.
+    """
+
     def post(self, request):
-        serializer = StockPredictionSerializer(data = request.data)
-        if serializer.is_valid():
-            ticker = serializer.validated_data['ticker']
-            days = serializer.validated_data['days']
-            
-            df = yf.download(ticker, period='10y', auto_adjust=False)
-            if df.empty:
-                return Response(
-                    {
-                        'error': 'No data found for the given ticker',
-                        'status': status.HTTP_404_NOT_FOUND
-                    }
-                )
-            
-            if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.get_level_values(0)  # flatten to single level
+        serializer = StockPredictionSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST
+            )
 
-            df= df.reset_index()
+        ticker = serializer.validated_data["ticker"].upper()
 
-            # Splitting data into Training & Testing datasets
-            data_training = pd.DataFrame(df.Close[0:int(len(df)*0.7)])
-            data_testing = pd.DataFrame(df.Close[int(len(df)*0.7):int(len(df))])
+        # A few months of history is enough since the model only looks at
+        # the most recent SEQ_LEN daily returns.
+        df = yf.download(ticker, period="6mo", auto_adjust=True, progress=False)
+        if df.empty:
+            return Response(
+                {"error": "No data found for the given ticker"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
-            # Scaling down the data between 0 and 1
-            scaler = MinMaxScaler(feature_range=(0,1))
-            
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
 
+        # Keep the last 60 trading days of real closing prices for the chart,
+        # taken before feature engineering drops the first row to pct_change.
+        price_history = [
+            {"date": str(idx.date()), "close": round(float(close), 2)}
+            for idx, close in df["Close"].tail(60).items()
+        ]
 
-            past_100_days = data_training.tail(100)
-            final_df = pd.concat([past_100_days, data_testing], ignore_index=True)
-            input_data = scaler.fit_transform(final_df)
+        df = build_features(df)
 
-            x_test = []
-            y_test = []
-            for i in range(100, input_data.shape[0]):
-                x_test.append(input_data[i-100: i])
-                y_test.append(input_data[i, 0])
-            x_test, y_test = np.array(x_test), np.array(y_test)
+        if len(df) < SEQ_LEN:
+            return Response(
+                {"error": "Not enough historical data to make a prediction"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-             # Making Predictions
-            current_value=[]
-            prediction_result= []
-            y_predicted = model.predict(x_test)
+        last_seq = df[FEATURE_COLS].values[-SEQ_LEN:]
+        scaled_seq = np.clip(scaler.transform(last_seq), -5, 5)
+        X = scaled_seq.reshape(1, SEQ_LEN, len(FEATURE_COLS))
 
-            # Revert the scaled prices to original price
-            prediction_result = scaler.inverse_transform(y_predicted.reshape(-1, 1)).flatten().tolist()
+        ticker_id = TICKER_TO_ID.get(ticker)
+        is_known_ticker = ticker_id is not None
+        ticker_ids = np.array([[ticker_id if is_known_ticker else 0]])
 
-            current_value = scaler.inverse_transform(y_test.reshape(-1, 1)).flatten().tolist()
+        prob_up = float(model.predict([X, ticker_ids], verbose=0)[0, 0])
+        direction = "UP" if prob_up >= 0.5 else "DOWN"
+        confidence = prob_up if direction == "UP" else 1 - prob_up
 
-            # Model Evaluation
-            # Mean Squared Error (MSE)
-            mse = mean_squared_error(current_value, prediction_result)
-
-            # Root Mean Squared Error (RMSE)
-            rmse = np.sqrt(mse)
-
-            # R-Squared
-            r2 = r2_score(current_value, prediction_result)
-
-            # recent_prices = [
-            #     {'date': str(row['Date'])[:10], 'close': float(row['Close'])}
-            #     for _, row in df.iterrows()
-            #     ]
-
-            return Response({
-                'status': 'success',
-                'mse': float(mse),
-                'rmse': float(rmse),
-                'r2': float(r2),
-                'predict_value':prediction_result,
-                'current_value':current_value,
-                # 'recent_prices': recent_prices,
-                })
-        
-        return Response({
-            "errors": serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
-# <-----------------------------------------------------------------------------------------------------> 
-        # # N-days prediction code
-        #     # past_100_days_stock_data = df[['Close']].tail(100)
-           
-        #     # shaping data into 2D array
-
-        #     #scaling the data
-        #     # scaler = MinMaxScaler(feature_range=(0,1))
-        #     scaled_data = scaler.fit_transform(past_100_days)
-
-        #     final_data_for_prediction= np.reshape(scaled_data, (1, 100, 1))
-
-        #     predictions = []
-        #     for _ in range(days):
-
-        #         next_pred = model.predict(final_data_for_prediction)
-        #         predictions.append(float(next_pred[0,0]))
-
-        #         next_pred_reshaped = next_pred.reshape(1,1,1)
-
-        #         final_data_for_prediction = np.concatenate(
-        #             (final_data_for_prediction[:,1:,:], next_pred_reshaped),
-        #             axis=1
-        #         )
-        #     predictions = np.array(predictions).reshape(-1,1)
-        #     predicted_data_non_scaled= scaler.inverse_transform(predictions).flatten()
-
-        #     return Response(
-        #         {
-        #             'status':'success',
-        #             'predict_value':predicted_data_non_scaled.tolist()
-        #         }, status= status.HTTP_200_OK)
-        
-        # return Response({
-        #     "errors": serializer.errors
-        # }, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "status": "success",
+                "ticker": ticker,
+                "direction": direction,
+                "probability_up": round(prob_up, 4),
+                "confidence": round(confidence, 4),
+                "horizon_days": HORIZON,
+                "used_known_ticker_embedding": is_known_ticker,
+                "price_history": price_history,
+                "note": (
+                    "This model's validation accuracy is modest (~53% on a "
+                    "single split) and has not been backtested with trading "
+                    "costs — treat this as a weak signal, not a recommendation."
+                ),
+            }
+        )
 
 
 class TickerInfoAPIView(APIView):
-
-     def get(self, request):
-        ticker = request.query_params.get('ticker')
+    def get(self, request):
+        ticker = request.query_params.get("ticker")
         if not ticker:
-            return Response({'error': 'Ticker is required'}, status= status.HTTP_400_BAD_REQUEST)
-        
+            return Response(
+                {"error": "Ticker is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
-            info= yf.Ticker(ticker).info
-            return Response({
-                'Symbol': info.get('symbol', ticker),
-                'Name': info.get('longName', '---'),
-                'Industry': info.get('industry', '---'),
-                'Country': info.get('country', '---'),
-                'Exchange': info.get('exchange', '---'),
-                'Currency': info.get('currency', '---'),
-                'Market Cap': info.get('marketCap', '---'),
-                'Website': info.get('website', '---'),
-                'Description': info.get('longBusinessSummary', '---')
-            })
+            info = yf.Ticker(ticker).info
+            return Response(
+                {
+                    "Symbol": info.get("symbol", ticker),
+                    "Name": info.get("longName", "---"),
+                    "Industry": info.get("industry", "---"),
+                    "Country": info.get("country", "---"),
+                    "Exchange": info.get("exchange", "---"),
+                    "Currency": info.get("currency", "---"),
+                    "Market Cap": info.get("marketCap", "---"),
+                    "Website": info.get("website", "---"),
+                    "Description": info.get("longBusinessSummary", "---"),
+                }
+            )
         except Exception as e:
-            return Response({'error': str(e)}, status= status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

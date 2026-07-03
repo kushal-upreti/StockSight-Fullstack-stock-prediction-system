@@ -7,7 +7,7 @@ MODEL_PATH = os.path.join(
     "apps",
     "predictions",
     "stock_models",
-    "tesla_model.keras"
+    "Universal_24stock_model_main.keras"
 )
 
 model = load_model(MODEL_PATH)
