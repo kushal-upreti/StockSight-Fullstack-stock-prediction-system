@@ -31,6 +31,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
+    subscription_status = models.CharField(max_length=20, default='inactive')
+    subscription_plan = models.CharField(max_length=100, blank=True)
 
     groups = models.ManyToManyField(
         'auth.Group',

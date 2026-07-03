@@ -35,6 +35,8 @@ class RegisterView(APIView):
                 'token': token.key,
                 'username': user.username,
                 'email': user.email,
+                'subscription_status': user.subscription_status,
+                'subscription_plan': user.subscription_plan,
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -55,6 +57,8 @@ class LoginView(APIView):
                     'token': token.key,
                     'username': user.username,
                     'email': user.email,
+                    'subscription_status': user.subscription_status,
+                    'subscription_plan': user.subscription_plan,
                 }, status=status.HTTP_200_OK)
             return Response({'error': 'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

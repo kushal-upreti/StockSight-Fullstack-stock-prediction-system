@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'apps.stocks.apps.StocksConfig',
     'apps.predictions',
     'apps.bookmarks',
+    'apps.payments',
 ]
 
 MIDDLEWARE = [
@@ -118,6 +119,7 @@ REST_FRAMEWORK = {
 # CORS — allow requests from your React dev server
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
+    'http://127.0.0.1:5180',
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -140,3 +142,10 @@ DEFAULT_FROM_EMAIL = os.environ.get('EMAIL_HOST_USER')
 
 # Password reset token expiry (in hours)
 PASSWORD_RESET_TIMEOUT_HOURS = 24
+
+
+# Khalti payment settings
+KHALTI_BASE_URL = os.environ.get('KHALTI_BASE_URL', 'https://dev.khalti.com/api/v2')
+KHALTI_SECRET_KEY = os.environ.get('KHALTI_SECRET_KEY')
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://127.0.0.1:5180')
+STOCKSIGHT_PRO_AMOUNT_PAISA = int(os.environ.get('STOCKSIGHT_PRO_AMOUNT_PAISA', '300000'))

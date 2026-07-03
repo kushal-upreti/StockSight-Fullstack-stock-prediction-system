@@ -45,6 +45,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     email = serializers.CharField(source='user.email', read_only=True)
     full_name = serializers.CharField(source='user.full_name', required=False, allow_blank=True)
+    subscription_status = serializers.CharField(source='user.subscription_status', read_only=True)
+    subscription_plan = serializers.CharField(source='user.subscription_plan', read_only=True)
     profile_picture_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -53,6 +55,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'username',
             'email',
             'full_name',
+            'subscription_status',
+            'subscription_plan',
             'bio',
             'profile_picture',
             'profile_picture_url',
@@ -135,7 +139,7 @@ class ResetPasswordSerializer(serializers.Serializer):
     token = serializers.UUIDField()
     new_password = serializers.CharField(write_only=True, min_length=6)
     confirm_password = serializers.CharField(write_only=True)
-    
+
     def validate(self, data):
         if data['new_password'] != data['confirm_password']:
             raise serializers.ValidationError("Passwords do not match.")
