@@ -36,8 +36,8 @@ def start_scheduler():
     scheduler.add_job(
         refresh_stock_data,
         trigger="cron",
-        hour=1,
-        minute=45,
+        hour=5,
+        minute=0,
         id="stock_refresh_job",
         replace_existing=True,
     )
